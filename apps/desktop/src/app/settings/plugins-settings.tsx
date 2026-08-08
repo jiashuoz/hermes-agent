@@ -1,5 +1,7 @@
 import { useStore } from '@nanostores/react'
+import { type ReactNode, useEffect } from 'react'
 
+import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Switch } from '@/components/ui/switch'
@@ -8,12 +10,25 @@ import { $pluginRecords, type PluginRecord, setPluginEnabled } from '@/contrib/p
 import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
-import { Package } from '@/lib/icons'
+import { FolderOpen, Monitor, Package, RefreshCw } from '@/lib/icons'
+import {
+  $agentPluginBusy,
+  $agentPlugins,
+  $agentPluginsError,
+  $agentPluginsStatus,
+  type AgentPluginRow,
+  loadAgentPlugins,
+  toggleAgentPlugin
+} from '@/store/agent-plugins'
 import { notifyError } from '@/store/notifications'
+import { $gatewayState } from '@/store/session'
 
-import { EmptyState, ListRow, Pill, SectionHeading, SettingsContent } from './primitives'
+import { EmptyState, ListRowSkeleton, Pill, SettingsContent, SettingsSection } from './primitives'
 
 const KIND_ORDER: Record<PluginRecord['kind'], number> = { disk: 0, runtime: 1, bundled: 2 }
+
+// User-installed plugins first, bundled last — mirrors `hermes plugins list`.
+const SOURCE_ORDER: Record<string, number> = { user: 0, git: 0, project: 1, entrypoint: 2, bundled: 3 }
 
 function reveal(file: string) {
   void window.hermesDesktop?.revealPath?.(file)?.catch(() => undefined)
@@ -43,14 +58,121 @@ async function revealPluginsDir() {
   }
 }
 
+// Compact row: name + pills and a wrapping description on the left, controls
+// pinned top-right. Same type scale as ListRow, without its wide control grid.
+function PluginLine({
+  title,
+  description,
+  controls
+}: {
+  title: ReactNode
+  description?: ReactNode
+  controls: ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3 py-3">
+      <div className="min-w-0 flex-1 pr-4">
+        <div className="flex flex-wrap items-center gap-2 text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
+          {title}
+        </div>
+        {description && (
+          <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) break-words text-(--ui-text-tertiary)">
+            {description}
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">{controls}</div>
+    </div>
+  )
+}
+
+function AgentPluginRowView({ row }: { row: AgentPluginRow }) {
+  const { t } = useI18n()
+  const p = t.settings.plugins
+  const { requestGateway } = useGatewayRequest()
+  const busy = useStore($agentPluginBusy)
+
+  return (
+    <PluginLine
+      controls={
+        <Switch
+          aria-label={`${row.status === 'enabled' ? p.disable : p.enable} ${row.name}`}
+          checked={row.status === 'enabled'}
+          disabled={busy === row.key}
+          onCheckedChange={on => {
+            triggerHaptic('selection')
+            void toggleAgentPlugin(requestGateway, row.key, on, p.agent.toggleFailed(row.name))
+          }}
+        />
+      }
+      description={row.description || (row.version ? `v${row.version}` : undefined)}
+      title={
+        <>
+          <span>{row.name}</span>
+          <Pill>{p.agent.sources[row.source] ?? row.source}</Pill>
+          {row.portable && <Pill tone="primary">{p.agent.portable}</Pill>}
+        </>
+      }
+    />
+  )
+}
+
+function AgentPluginsSection() {
+  const { t } = useI18n()
+  const p = t.settings.plugins
+  const { requestGateway } = useGatewayRequest()
+  const gatewayState = useStore($gatewayState)
+  const rows = useStore($agentPlugins)
+  const status = useStore($agentPluginsStatus)
+  const error = useStore($agentPluginsError)
+
+  useEffect(() => {
+    if (gatewayState !== 'open') {
+      return
+    }
+
+    void loadAgentPlugins(requestGateway)
+  }, [gatewayState, requestGateway])
+
+  const sorted = [...rows].sort(
+    (a, b) => (SOURCE_ORDER[a.source] ?? 9) - (SOURCE_ORDER[b.source] ?? 9) || a.name.localeCompare(b.name)
+  )
+
+  return (
+    <SettingsSection icon={Package} meta={status === 'ready' ? p.count(sorted.length) : undefined} title={p.agent.title}>
+      <p className="mb-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+        {p.agent.blurb}
+      </p>
+
+      {status === 'loading' || status === 'idle' ? (
+        <div className="grid gap-1">
+          <ListRowSkeleton />
+          <ListRowSkeleton />
+          <ListRowSkeleton />
+        </div>
+      ) : status === 'error' ? (
+        <EmptyState description={error ?? undefined} title={p.agent.loadFailed} />
+      ) : sorted.length === 0 ? (
+        <EmptyState title={p.agent.empty} />
+      ) : (
+        <div className="grid gap-1">
+          {sorted.map(row => (
+            <AgentPluginRowView key={row.key || row.name} row={row} />
+          ))}
+        </div>
+      )}
+    </SettingsSection>
+  )
+}
+
 function PluginRow({ record }: { record: PluginRecord }) {
   const { t } = useI18n()
   const p = t.settings.plugins
 
   return (
-    <ListRow
-      action={
-        <div className="flex items-center justify-end gap-2">
+    <PluginLine
+      controls={
+        <>
           {record.file && (
             <Tip label={p.reveal}>
               <Button onClick={() => reveal(record.file!)} size="icon" variant="ghost">
@@ -66,7 +188,7 @@ function PluginRow({ record }: { record: PluginRecord }) {
               void setPluginEnabled(record.id, on)
             }}
           />
-        </div>
+        </>
       }
       description={
         record.status === 'error' ? (
@@ -76,11 +198,11 @@ function PluginRow({ record }: { record: PluginRecord }) {
         )
       }
       title={
-        <span className="flex items-center gap-2">
-          {record.name}
+        <>
+          <span>{record.name}</span>
           <Pill>{p.kinds[record.kind]}</Pill>
           {record.status === 'error' && <Pill tone="primary">{p.failed}</Pill>}
-        </span>
+        </>
       }
     />
   )
@@ -97,36 +219,40 @@ export function PluginsSettings() {
 
   return (
     <SettingsContent>
-      <SectionHeading icon={Package} meta={p.count(rows.length)} title={p.title} />
-      <p className="mb-4 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">{p.blurb}</p>
+      <SettingsSection icon={Monitor} meta={p.count(rows.length)} title={p.title}>
+        <p className="mb-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">{p.blurb}</p>
 
-      <div className="mb-4 flex items-center gap-2">
-        <Button onClick={() => void revealPluginsDir()} size="sm" variant="outline">
-          <Codicon name="folder-opened" size="0.8rem" />
-          {p.openFolder}
-        </Button>
-        <Button
-          onClick={() => {
-            triggerHaptic('selection')
-            void discoverRuntimePlugins()
-          }}
-          size="sm"
-          variant="outline"
-        >
-          <Codicon name="refresh" size="0.8rem" />
-          {p.rescan}
-        </Button>
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState title={p.empty} />
-      ) : (
-        <div className="divide-y divide-(--ui-stroke-tertiary)">
-          {rows.map(record => (
-            <PluginRow key={record.id} record={record} />
-          ))}
+        <div className="mb-2 flex items-center gap-3">
+          <Button onClick={() => void revealPluginsDir()} size="sm" type="button" variant="textStrong">
+            <FolderOpen className="size-3.5" />
+            <span>{p.openFolder}</span>
+          </Button>
+          <Button
+            onClick={() => {
+              triggerHaptic('selection')
+              void discoverRuntimePlugins()
+            }}
+            size="sm"
+            type="button"
+            variant="textStrong"
+          >
+            <RefreshCw className="size-3.5" />
+            <span>{p.rescan}</span>
+          </Button>
         </div>
-      )}
+
+        {rows.length === 0 ? (
+          <EmptyState title={p.empty} />
+        ) : (
+          <div className="grid gap-1">
+            {rows.map(record => (
+              <PluginRow key={record.id} record={record} />
+            ))}
+          </div>
+        )}
+      </SettingsSection>
+
+      <AgentPluginsSection />
     </SettingsContent>
   )
 }

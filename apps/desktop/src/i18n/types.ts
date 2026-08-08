@@ -317,6 +317,15 @@ export interface Translations {
       failed: string
       empty: string
       kinds: { bundled: string; disk: string; runtime: string }
+      agent: {
+        title: string
+        blurb: string
+        empty: string
+        loadFailed: string
+        portable: string
+        toggleFailed: (name: string) => string
+        sources: Record<string, string>
+      }
     }
     notifications: {
       title: string
