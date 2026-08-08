@@ -30,6 +30,14 @@ const KIND_ORDER: Record<PluginRecord['kind'], number> = { disk: 0, runtime: 1, 
 // User-installed plugins first, bundled last — mirrors `hermes plugins list`.
 const SOURCE_ORDER: Record<string, number> = { user: 0, git: 0, project: 1, entrypoint: 2, bundled: 3 }
 
+// Web-dashboard-only plugin categories (by registry key prefix). Auth
+// providers for `hermes dashboard` do nothing in the desktop app, so listing
+// them here is noise — same curation stance as desktop-slash-commands.ts.
+const HIDDEN_KEY_PREFIXES = ['dashboard_auth/']
+
+const isDesktopRelevant = (row: AgentPluginRow) =>
+  !HIDDEN_KEY_PREFIXES.some(prefix => row.key.startsWith(prefix))
+
 function reveal(file: string) {
   void window.hermesDesktop?.revealPath?.(file)?.catch(() => undefined)
 }
@@ -134,9 +142,9 @@ function AgentPluginsSection() {
     void loadAgentPlugins(requestGateway)
   }, [gatewayState, requestGateway])
 
-  const sorted = [...rows].sort(
-    (a, b) => (SOURCE_ORDER[a.source] ?? 9) - (SOURCE_ORDER[b.source] ?? 9) || a.name.localeCompare(b.name)
-  )
+  const sorted = rows
+    .filter(isDesktopRelevant)
+    .sort((a, b) => (SOURCE_ORDER[a.source] ?? 9) - (SOURCE_ORDER[b.source] ?? 9) || a.name.localeCompare(b.name))
 
   return (
     <SettingsSection icon={Package} meta={status === 'ready' ? p.count(sorted.length) : undefined} title={p.agent.title}>
