@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { FolderOpen, Monitor, Package, RefreshCw } from '@/lib/icons'
+import { normalize } from '@/lib/text'
 import {
   $agentPluginBusy,
   $agentPlugins,
@@ -135,6 +136,7 @@ function AgentPluginsSection() {
   const rows = useStore($agentPlugins)
   const status = useStore($agentPluginsStatus)
   const error = useStore($agentPluginsError)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (gatewayState !== 'open') {
@@ -144,8 +146,17 @@ function AgentPluginsSection() {
     void loadAgentPlugins(requestGateway)
   }, [gatewayState, requestGateway])
 
+  const needle = normalize(query)
+
   const sorted = rows
     .filter(isDesktopRelevant)
+    .filter(
+      row =>
+        !needle ||
+        row.name.toLowerCase().includes(needle) ||
+        row.key.toLowerCase().includes(needle) ||
+        row.description.toLowerCase().includes(needle)
+    )
     .sort((a, b) => (SOURCE_ORDER[a.source] ?? 9) - (SOURCE_ORDER[b.source] ?? 9) || a.name.localeCompare(b.name))
 
   return (
@@ -153,6 +164,14 @@ function AgentPluginsSection() {
       <p className="mb-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
         {p.agent.blurb}
       </p>
+
+      <input
+        className="mb-3 w-full rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-3 py-1.5 text-[length:var(--conversation-caption-font-size)] outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-stroke-secondary)"
+        onChange={event => setQuery(event.target.value)}
+        placeholder={p.agent.search}
+        spellCheck={false}
+        value={query}
+      />
 
       {status === 'loading' || status === 'idle' ? (
         <div className="grid gap-1">
@@ -163,7 +182,13 @@ function AgentPluginsSection() {
       ) : status === 'error' ? (
         <EmptyState description={error ?? undefined} title={p.agent.loadFailed} />
       ) : sorted.length === 0 ? (
-        <EmptyState title={p.agent.empty} />
+        needle ? (
+          <p className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+            {p.agent.noMatches}
+          </p>
+        ) : (
+          <EmptyState title={p.agent.empty} />
+        )
       ) : (
         <div className="grid gap-1">
           {sorted.map(row => (

@@ -364,6 +364,8 @@ export const zh: Translations = {
         empty: '尚未安装智能体插件。',
         loadFailed: '无法加载智能体插件',
         portable: '便携',
+        search: '搜索插件…',
+        noMatches: '没有匹配的插件。',
         toggleFailed: (name: string) => `无法切换 ${name}`,
         sources: { bundled: '内置', user: '用户', git: 'git', project: '项目', entrypoint: 'pip' }
       }

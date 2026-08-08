@@ -323,6 +323,8 @@ export interface Translations {
         empty: string
         loadFailed: string
         portable: string
+        search: string
+        noMatches: string
         toggleFailed: (name: string) => string
         sources: Record<string, string>
       }

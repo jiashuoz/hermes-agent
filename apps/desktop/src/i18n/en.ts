@@ -373,6 +373,8 @@ export const en: Translations = {
         empty: 'No agent plugins installed yet.',
         loadFailed: 'Could not load agent plugins',
         portable: 'portable',
+        search: 'Search plugins…',
+        noMatches: 'No plugins match your search.',
         toggleFailed: (name: string) => `Could not toggle ${name}`,
         sources: { bundled: 'bundled', user: 'user', git: 'git', project: 'project', entrypoint: 'pip' }
       }
