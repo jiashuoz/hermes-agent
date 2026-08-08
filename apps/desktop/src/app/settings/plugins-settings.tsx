@@ -30,10 +30,12 @@ const KIND_ORDER: Record<PluginRecord['kind'], number> = { disk: 0, runtime: 1, 
 // User-installed plugins first, bundled last — mirrors `hermes plugins list`.
 const SOURCE_ORDER: Record<string, number> = { user: 0, git: 0, project: 1, entrypoint: 2, bundled: 3 }
 
-// Web-dashboard-only plugin categories (by registry key prefix). Auth
-// providers for `hermes dashboard` do nothing in the desktop app, so listing
-// them here is noise — same curation stance as desktop-slash-commands.ts.
-const HIDDEN_KEY_PREFIXES = ['dashboard_auth/']
+// Plugin categories (by registry key prefix) that other surfaces own — same
+// curation stance as desktop-slash-commands.ts. dashboard_auth/* only matters
+// to `hermes dashboard`; model-providers/* are configured in Settings →
+// Models; platforms/* are managed from Messaging. The plugin switch is not
+// the user-facing control for any of them, so listing them here is noise.
+const HIDDEN_KEY_PREFIXES = ['dashboard_auth/', 'model-providers/', 'platforms/']
 
 const isDesktopRelevant = (row: AgentPluginRow) =>
   !HIDDEN_KEY_PREFIXES.some(prefix => row.key.startsWith(prefix))
