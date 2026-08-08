@@ -81,13 +81,13 @@ function PluginLine({
   controls: ReactNode
 }) {
   return (
-    <div className="flex items-start gap-3 py-3">
+    <div className="flex items-start gap-3 py-2">
       <div className="min-w-0 flex-1 pr-4">
         <div className="flex flex-wrap items-center gap-2 text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
           {title}
         </div>
         {description && (
-          <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) break-words text-(--ui-text-tertiary)">
+          <div className="mt-0.5 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) break-words text-(--ui-text-tertiary)">
             {description}
           </div>
         )}
@@ -166,7 +166,7 @@ function AgentPluginsSection() {
       </p>
 
       <input
-        className="mb-3 w-full rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-3 py-1.5 text-[length:var(--conversation-caption-font-size)] outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-stroke-secondary)"
+        className="mb-2 w-full rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-3 py-1.5 text-[length:var(--conversation-caption-font-size)] outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-stroke-secondary)"
         onChange={event => setQuery(event.target.value)}
         placeholder={p.agent.search}
         spellCheck={false}
@@ -174,7 +174,7 @@ function AgentPluginsSection() {
       />
 
       {status === 'loading' || status === 'idle' ? (
-        <div className="grid gap-1">
+        <div>
           <ListRowSkeleton />
           <ListRowSkeleton />
           <ListRowSkeleton />
@@ -190,7 +190,7 @@ function AgentPluginsSection() {
           <EmptyState title={p.agent.empty} />
         )
       ) : (
-        <div className="grid gap-1">
+        <div>
           {sorted.map(row => (
             <AgentPluginRowView key={row.key || row.name} row={row} />
           ))}
@@ -279,7 +279,7 @@ export function PluginsSettings() {
         {rows.length === 0 ? (
           <EmptyState title={p.empty} />
         ) : (
-          <div className="grid gap-1">
+          <div>
             {rows.map(record => (
               <PluginRow key={record.id} record={record} />
             ))}
